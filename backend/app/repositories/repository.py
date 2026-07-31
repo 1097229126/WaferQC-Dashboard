@@ -13,12 +13,12 @@ class WaferRepository:
     
     @staticmethod
     def get_all_wafers(db: Session, skip: int = 0, limit: int = 100) -> Tuple[List[Wafer], int]:
-        """分页获取所有晶圆及其统计信息"""
+        """分页获取所有晶圆及其统计信息（按创建时间倒序，新的在前）"""
         # 获取总数
         total = db.query(func.count(Wafer.id)).scalar()
         
-        # 获取晶圆列表
-        wafers = db.query(Wafer).offset(skip).limit(limit).all()
+        # 获取晶圆列表（按创建时间倒序）
+        wafers = db.query(Wafer).order_by(Wafer.created_at.desc()).offset(skip).limit(limit).all()
         
         return wafers, total
     
@@ -92,8 +92,8 @@ class MeasurementRepository:
     
     @staticmethod
     def get_measurements_by_wafer(db: Session, wafer_no: str) -> List[Measurement]:
-        """获取指定晶圆的测量数据"""
-        return db.query(Measurement).filter(Measurement.wafer_no == wafer_no).all()
+        """获取指定晶圆的测量数据（按测量时间倒序，新的在前）"""
+        return db.query(Measurement).filter(Measurement.wafer_no == wafer_no).order_by(Measurement.measured_at.desc()).all()
     
     @staticmethod
     def bulk_create_measurements(db: Session, measurements: List[dict]) -> List[Measurement]:

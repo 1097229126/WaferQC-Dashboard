@@ -3,9 +3,17 @@
 """
 from sqlalchemy import Column, Integer, Float, String, DateTime, ForeignKey, SmallInteger
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 from app.core.database import Base
+
+# 定义中国时区（UTC+8）
+CHINA_TZ = timezone(timedelta(hours=8))
+
+
+def china_now():
+    """获取中国时区的当前时间"""
+    return datetime.now(CHINA_TZ)
 
 
 class Wafer(Base):
@@ -17,8 +25,8 @@ class Wafer(Base):
     original_grade = Column(String(50), nullable=True)  # 原始等级
     concentration_target = Column(Float, nullable=True)  # 浓度目标值
     thickness_target = Column(Float, nullable=True)  # 厚度目标值
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=china_now)
+    updated_at = Column(DateTime, default=china_now, onupdate=china_now)
 
     # 关系映射
     measurements = relationship("Measurement", back_populates="wafer")
@@ -32,8 +40,8 @@ class Measurement(Base):
     wafer_no = Column(String(50), ForeignKey("wafer.wafer_no"), nullable=False, index=True)  # 外键关联晶片号
     measurement_type = Column(SmallInteger, nullable=False, index=True)  # 测量类型 (1=浓度, 2=厚度)
     value = Column(Float, nullable=True)  # 测量值
-    measured_at = Column(DateTime, default=datetime.utcnow)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    measured_at = Column(DateTime, default=china_now)
+    created_at = Column(DateTime, default=china_now)
 
     # 关系映射
     wafer = relationship("Wafer", back_populates="measurements")
