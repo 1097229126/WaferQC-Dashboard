@@ -105,7 +105,13 @@
         <!-- 统计卡片 -->
         <el-row :gutter="20" class="stats-row">
           <el-col :span="8">
-            <el-card shadow="hover">
+            <el-card 
+              shadow="hover" 
+              class="stat-card"
+              :class="{ 'active-card': activeTab === 'all' }"
+              @click="activeTab = 'all'"
+              style="cursor: pointer;"
+            >
               <div class="stat-item">
                 <div class="stat-label">总测量次数</div>
                 <div class="stat-value">{{ measurements.length }}</div>
@@ -113,7 +119,13 @@
             </el-card>
           </el-col>
           <el-col :span="8">
-            <el-card shadow="hover">
+            <el-card 
+              shadow="hover" 
+              class="stat-card"
+              :class="{ 'active-card': activeTab === 'concentration' }"
+              @click="activeTab = 'concentration'"
+              style="cursor: pointer;"
+            >
               <div class="stat-item">
                 <div class="stat-label">浓度测量</div>
                 <div class="stat-value">{{ concentrationCount }}</div>
@@ -121,7 +133,13 @@
             </el-card>
           </el-col>
           <el-col :span="8">
-            <el-card shadow="hover">
+            <el-card 
+              shadow="hover" 
+              class="stat-card"
+              :class="{ 'active-card': activeTab === 'thickness' }"
+              @click="activeTab = 'thickness'"
+              style="cursor: pointer;"
+            >
               <div class="stat-item">
                 <div class="stat-label">厚度测量</div>
                 <div class="stat-value">{{ thicknessCount }}</div>
@@ -129,6 +147,7 @@
             </el-card>
           </el-col>
         </el-row>
+
 
         <!-- 操作按钮区 -->
         <div class="measure-actions">
@@ -140,7 +159,7 @@
 
         <!-- 测量数据表格 -->
         <el-table
-          :data="measurements"
+          :data="filteredMeasurements"
           v-loading="detailLoading"
           stripe
           border
@@ -166,6 +185,12 @@
           <el-table-column prop="measured_at" label="测量时间" min-width="180" align="center">
             <template #default="{ row }">
               {{ formatDate(row.measured_at) }}
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="measurement_batch" label="测量批次" width="120" align="center">
+            <template #default="{ row }">
+              <el-tag type="info">{{ row.measurement_batch || 1 }}</el-tag>
             </template>
           </el-table-column>
         </el-table>
@@ -206,6 +231,15 @@
               <span style="color: #8492a6; font-size: 13px; margin-left: 8px;">μm</span>
             </el-option>
           </el-select>
+        </el-form-item>
+        <el-form-item label="测量批次" prop="measurement_batch">
+          <el-input-number
+            v-model="createMeasureForm.measurement_batch"
+            :min="1"
+            :step="1"
+            placeholder="请输入测量批次"
+            style="width: 100%;"
+          />
         </el-form-item>
         <el-form-item label="测量值" prop="value">
           <el-input
@@ -312,6 +346,7 @@ const drawerVisible = ref(false)
 const currentWaferNo = ref('')
 const measurements = ref([])
 const detailLoading = ref(false)
+const activeTab = ref('all') // 当前激活的tab
 
 // 新建晶片对话框相关状态
 const createDialogVisible = ref(false)
@@ -332,6 +367,7 @@ const createMeasureForm = ref({
   wafer_no: '',
   measurement_type: null,
   value: null,
+  measurement_batch: 1,
   measured_at: new Date().toLocaleString('zh-CN', {
     year: 'numeric',
     month: '2-digit',
@@ -390,6 +426,10 @@ const createMeasureRules = {
   measurement_type: [
     { required: true, message: '请选择测量类型', trigger: 'change' }
   ],
+  measurement_batch: [
+    { required: true, message: '请输入测量批次', trigger: 'blur' },
+    { type: 'number', min: 1, message: '测量批次必须大于等于1', trigger: 'blur' }
+  ],
   value: [
     { required: true, message: '请输入测量值', trigger: 'blur' },
     {
@@ -419,6 +459,18 @@ const concentrationCount = computed(() => {
 
 const thicknessCount = computed(() => {
   return measurements.value.filter(m => m.measurement_type === 2).length
+})
+
+// 测量数据（根据activeTab过滤）
+const filteredMeasurements = computed(() => {
+  if (activeTab.value === 'all') {
+    return measurements.value
+  } else if (activeTab.value === 'concentration') {
+    return measurements.value.filter(m => m.measurement_type === 1)
+  } else if (activeTab.value === 'thickness') {
+    return measurements.value.filter(m => m.measurement_type === 2)
+  }
+  return measurements.value
 })
 
 const measurementUnit = computed(() => {
@@ -524,6 +576,7 @@ const showCreateMeasurementDialog = () => {
     wafer_no: currentWaferNo.value,
     measurement_type: null,
     value: null,
+    measurement_batch: 1,
     measured_at: new Date().toLocaleString('zh-CN', {
       year: 'numeric',
       month: '2-digit',
@@ -586,7 +639,8 @@ const handleCreateMeasurement = () => {
         wafer_no: createMeasureForm.value.wafer_no,
         measurement_type: createMeasureForm.value.measurement_type,
         value: Number(createMeasureForm.value.value),
-        measured_at: createMeasureForm.value.measured_at
+        measured_at: createMeasureForm.value.measured_at,
+        measurement_batch: createMeasureForm.value.measurement_batch
       }
       await measurementAPI.createMeasurement(data)
       ElMessage.success('新建测量数据成功')
@@ -731,6 +785,24 @@ onMounted(() => {
   font-size: 28px;
   font-weight: bold;
   color: #409eff;
+}
+
+/* 统计卡片样式 */
+.stat-card {
+  transition: all 0.3s ease;
+  border-radius: 8px;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.active-card {
+  background-color: #ecf5ff !important;
+  border-color: #b3d8ff !important;
+  color: #409eff !important;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2) !important;
 }
 
 /* 可点击的标签样式 */

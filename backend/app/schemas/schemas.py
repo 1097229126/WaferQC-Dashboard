@@ -45,6 +45,7 @@ class MeasurementBase(BaseModel):
     wafer_no: str = Field(..., description="晶片号")
     measurement_type: int = Field(..., description="测量类型 (1=浓度, 2=厚度)")
     value: Optional[float] = Field(None, description="测量值")
+    measurement_batch: Optional[int] = Field(1, description="测量批次")
 
 
 class MeasurementCreate(MeasurementBase):

@@ -91,6 +91,8 @@ class WaferMeasurement(Base):
     tolerance_status = Column(String(20), nullable=True)  # "PASS" 或 "FAIL"
     grade = Column(String(10), nullable=True)  # 质量等级
     
+    measurement_batch = Column(Integer, nullable=False, default=1, server_default="1")  # 测量批次
+    
     measured_at = Column(DateTime, default=datetime.utcnow)
 
     # 关系映射
