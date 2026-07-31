@@ -8,10 +8,10 @@
 本系统旨在提升半导体外延片质量监控效率与数据分析能力，通过可视化的方式展示晶片浓度、厚度两大核心参数的全维度质量监控与分析结果。
 
 ### 核心功能
-- **数据可视化**：展示两片批次/设备的 25 点位检测结果
-- **均匀性计算**：自动计算检测点的均匀性指标
-- **公差判定**：依据标准对数据进行公差范围判断
-- **等级评定**：根据检测结果进行质量等级评定
+- **数据可视化**：展示晶圆的浓度、厚度测量数据统计
+- **自动统计**：自动计算每个晶圆的平均浓度和平均厚度
+- **测量明细**：点击可查看每条测量数据的详细信息
+- **分页查询**：支持大量数据的分页浏览
 
 ## 🏗️ 技术架构
 
@@ -151,25 +151,79 @@ npm run dev
 
 ## 📊 API 接口
 
-### 批次管理
-- `POST /api/v1/batches/` - 创建新批次
-- `GET /api/v1/batches/` - 获取所有批次（支持分页）
-- `GET /api/v1/batches/{batch_id}` - 获取指定批次详情
-- `PUT /api/v1/batches/{batch_id}` - 更新批次信息
-- `DELETE /api/v1/batches/{batch_id}` - 删除批次
+### 晶圆管理
+- `GET /api/v1/wafers/` - 分页获取晶圆列表（含平均浓度、平均厚度统计）
+- `GET /api/v1/wafers/{wafer_no}` - 根据晶片号获取晶圆详情及统计信息
+- `POST /api/v1/wafers/` - 创建新晶圆
+- `DELETE /api/v1/wafers/{wafer_no}` - 删除晶圆
+- `POST /api/v1/wafers/bulk-create` - 批量创建晶圆及其测量数据
 
 ### 测量数据管理
-- `POST /api/v1/measurements/` - 创建测量数据
-- `GET /api/v1/batches/{batch_id}/measurements` - 获取批次的所有测量数据
-- `PUT /api/v1/measurements/{measurement_id}` - 更新测量数据
+- `POST /api/v1/measurements/` - 创建测量数据（支持浓度和厚度两种类型）
+- `GET /api/v1/wafers/{wafer_no}/measurements` - 获取指定晶圆的所有测量数据
 
-### 质量分析
-- `GET /api/v1/batches/{batch_id}/uniformity` - 计算批次均匀性
-- `GET /api/v1/batches/{batch_id}/quality` - 获取质量评定结果
-- `POST /api/v1/batches/{batch_id}/analyze` - 运行完整分析并更新数据
-- `POST /api/v1/batches/bulk-create` - 批量创建批次和测量数据
+### 响应示例
+
+#### 晶圆列表响应
+```json
+{
+  "total": 5,
+  "items": [
+    {
+      "id": 1,
+      "wafer_no": "WAFER-2024-001",
+      "original_grade": "A",
+      "concentration_target": 1500000000000000.0,
+      "thickness_target": 10.0,
+      "avg_concentration": 1498765432100000.0,
+      "avg_thickness": 10.0234,
+      "measurement_count": 50,
+      "created_at": "2024-01-01T00:00:00",
+      "updated_at": "2024-01-01T00:00:00"
+    }
+  ]
+}
+```
+
+#### 测量数据响应
+```json
+[
+  {
+    "id": 1,
+    "wafer_no": "WAFER-2024-001",
+    "measurement_type": 1,
+    "value": 1440342974404205.2,
+    "measured_at": "2024-01-01T12:00:00",
+    "created_at": "2024-01-01T12:00:00"
+  }
+]
+```
+
+### 参数说明
+
+#### 测量类型 (measurement_type)
+- **1**: 浓度测量（单位：atoms/cm³）
+- **2**: 厚度测量（单位：μm）
+
+#### 查询参数
+- `skip`: 跳过记录数（默认 0）
+- `limit`: 返回记录数（默认 100，最大 1000）
 
 ## 🔧 开发指南
+
+### 数据模型说明
+
+#### Wafer（晶圆）表
+- `wafer_no`: 晶片号（唯一标识）
+- `original_grade`: 原始等级
+- `concentration_target`: 浓度目标值
+- `thickness_target`: 厚度目标值
+
+#### Measurement（测量数据）表
+- `wafer_no`: 关联的晶片号（外键）
+- `measurement_type`: 测量类型（1=浓度，2=厚度）
+- `value`: 测量值
+- `measured_at`: 测量时间
 
 ### 均匀性计算公式
 ```
