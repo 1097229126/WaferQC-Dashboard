@@ -176,6 +176,15 @@
             </template>
           </el-table-column>
           
+          <el-table-column prop="point_number" label="测量点位" width="120" align="center">
+            <template #default="{ row }">
+              <span v-if="row.point_number">
+                {{ row.measurement_type === 1 ? `P${row.point_number}` : `T${row.point_number}` }}
+              </span>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          
           <el-table-column prop="value" label="测量值" min-width="200" align="center">
             <template #default="{ row }">
               {{ formatValue(row) }}
@@ -188,9 +197,9 @@
             </template>
           </el-table-column>
           
-          <el-table-column prop="measurement_batch" label="测量批次" width="120" align="center">
+          <el-table-column prop="measurement_equipment" label="测量设备" width="120" align="center">
             <template #default="{ row }">
-              <el-tag type="info">{{ row.measurement_batch || 1 }}</el-tag>
+              <el-tag type="info">{{ row.measurement_equipment || 1 }}</el-tag>
             </template>
           </el-table-column>
         </el-table>
@@ -232,12 +241,22 @@
             </el-option>
           </el-select>
         </el-form-item>
-        <el-form-item label="测量批次" prop="measurement_batch">
+        <el-form-item label="测量点位" prop="point_number">
           <el-input-number
-            v-model="createMeasureForm.measurement_batch"
+            v-model="createMeasureForm.point_number"
+            :min="1"
+            :max="25"
+            :step="1"
+            placeholder="请输入测量点位 (1-25)"
+            style="width: 100%;"
+          />
+        </el-form-item>
+        <el-form-item label="测量设备" prop="measurement_equipment">
+          <el-input-number
+            v-model="createMeasureForm.measurement_equipment"
             :min="1"
             :step="1"
-            placeholder="请输入测量批次"
+            placeholder="请输入测量设备编号"
             style="width: 100%;"
           />
         </el-form-item>
@@ -366,8 +385,9 @@ const createMeasureFormRef = ref(null)
 const createMeasureForm = ref({
   wafer_no: '',
   measurement_type: null,
+  point_number: null,
   value: null,
-  measurement_batch: 1,
+  measurement_equipment: 1,
   measured_at: new Date().toLocaleString('zh-CN', {
     year: 'numeric',
     month: '2-digit',
@@ -426,9 +446,13 @@ const createMeasureRules = {
   measurement_type: [
     { required: true, message: '请选择测量类型', trigger: 'change' }
   ],
-  measurement_batch: [
-    { required: true, message: '请输入测量批次', trigger: 'blur' },
-    { type: 'number', min: 1, message: '测量批次必须大于等于1', trigger: 'blur' }
+  point_number: [
+    { required: true, message: '请输入测量点位', trigger: 'blur' },
+    { type: 'number', min: 1, max: 25, message: '测量点位必须在1-25之间', trigger: 'blur' }
+  ],
+  measurement_equipment: [
+    { required: true, message: '请输入测量设备编号', trigger: 'blur' },
+    { type: 'number', min: 1, message: '测量设备编号必须大于等于1', trigger: 'blur' }
   ],
   value: [
     { required: true, message: '请输入测量值', trigger: 'blur' },
@@ -575,8 +599,9 @@ const showCreateMeasurementDialog = () => {
   createMeasureForm.value = {
     wafer_no: currentWaferNo.value,
     measurement_type: null,
+    point_number: null,
     value: null,
-    measurement_batch: 1,
+    measurement_equipment: 1,
     measured_at: new Date().toLocaleString('zh-CN', {
       year: 'numeric',
       month: '2-digit',
@@ -638,9 +663,10 @@ const handleCreateMeasurement = () => {
       const data = {
         wafer_no: createMeasureForm.value.wafer_no,
         measurement_type: createMeasureForm.value.measurement_type,
+        point_number: createMeasureForm.value.point_number,
         value: Number(createMeasureForm.value.value),
         measured_at: createMeasureForm.value.measured_at,
-        measurement_batch: createMeasureForm.value.measurement_batch
+        measurement_equipment: createMeasureForm.value.measurement_equipment
       }
       await measurementAPI.createMeasurement(data)
       ElMessage.success('新建测量数据成功')

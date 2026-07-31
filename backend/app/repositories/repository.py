@@ -69,9 +69,12 @@ class WaferRepository:
     
     @staticmethod
     def delete_wafer(db: Session, wafer_no: str) -> bool:
-        """删除晶圆"""
+        """删除晶圆（级联删除相关测量数据）"""
         wafer = db.query(Wafer).filter(Wafer.wafer_no == wafer_no).first()
         if wafer:
+            # 先删除相关的测量数据
+            db.query(Measurement).filter(Measurement.wafer_no == wafer_no).delete()
+            # 再删除晶圆
             db.delete(wafer)
             db.commit()
             return True
@@ -92,8 +95,21 @@ class MeasurementRepository:
     
     @staticmethod
     def get_measurements_by_wafer(db: Session, wafer_no: str) -> List[Measurement]:
-        """获取指定晶圆的测量数据（按测量时间倒序，新的在前）"""
-        return db.query(Measurement).filter(Measurement.wafer_no == wafer_no).order_by(Measurement.measured_at.desc()).all()
+        """获取指定晶圆的测量数据（按测量设备、测量类型、测量点位排序）"""
+        # 使用 CASE 表达式处理 NULL 值排序
+        from sqlalchemy import case
+        
+        return db.query(Measurement).filter(
+            Measurement.wafer_no == wafer_no
+        ).order_by(
+            Measurement.measurement_equipment.asc(),
+            Measurement.measurement_type.asc(),
+            case(
+                (Measurement.point_number.is_(None), 1),
+                else_=0
+            ),
+            Measurement.point_number.asc()
+        ).all()
     
     @staticmethod
     def bulk_create_measurements(db: Session, measurements: List[dict]) -> List[Measurement]:
