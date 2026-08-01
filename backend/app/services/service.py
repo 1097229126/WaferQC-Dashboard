@@ -59,7 +59,10 @@ class WaferService:
                     thick_max=stats.get("thick_max"),
                     thick_min=stats.get("thick_min"),
                     thick_uniformity=stats.get("thick_uniformity"),
-                    thick_tolerance=stats.get("thick_tolerance")
+                    thick_tolerance=stats.get("thick_tolerance"),
+                    # 一致性指标（设备1 vs 设备2）
+                    conc_consistency=stats.get("conc_consistency"),
+                    thick_consistency=stats.get("thick_consistency")
                 )
                 wafer_list.append(wafer_data)
                 

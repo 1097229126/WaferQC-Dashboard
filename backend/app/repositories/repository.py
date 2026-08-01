@@ -127,6 +127,85 @@ class WaferRepository:
         if wafer.thickness_target and wafer.thickness_target != 0 and thick_mean_result is not None:
             thick_tolerance = abs((thick_mean_result - wafer.thickness_target) / wafer.thickness_target * 100)
         
+        # ==================== 一致性指标计算（设备1 vs 设备2）====================
+        # 浓度一致性：对25个点位，计算 ((设备1.Pi - 设备2.Pi) / 设备2.Pi) * 100%，然后取均值
+        conc_consistency = None
+        try:
+            # 获取设备1的浓度数据（P1-P25）
+            eq1_conc = db.query(Measurement.point_number, Measurement.value).filter(
+                Measurement.wafer_no == wafer_no,
+                Measurement.measurement_type == 1,
+                Measurement.measurement_equipment == 1,
+                Measurement.point_number.isnot(None)
+            ).all()
+            
+            # 获取设备2的浓度数据（P1-P25）
+            eq2_conc = db.query(Measurement.point_number, Measurement.value).filter(
+                Measurement.wafer_no == wafer_no,
+                Measurement.measurement_type == 1,
+                Measurement.measurement_equipment == 2,
+                Measurement.point_number.isnot(None)
+            ).all()
+            
+            # 转换为字典便于查找
+            eq1_dict = {row.point_number: row.value for row in eq1_conc}
+            eq2_dict = {row.point_number: row.value for row in eq2_conc}
+            
+            # 计算每个点位的一致性
+            consistency_values = []
+            for point_num in range(1, 26):  # P1-P25
+                if point_num in eq1_dict and point_num in eq2_dict:
+                    val1 = eq1_dict[point_num]
+                    val2 = eq2_dict[point_num]
+                    if val2 and val2 != 0:  # 避免除零
+                        consistency = ((val1 - val2) / val2) * 100
+                        consistency_values.append(consistency)
+            
+            # 计算均值
+            if consistency_values:
+                conc_consistency = sum(consistency_values) / len(consistency_values)
+        except Exception as e:
+            print(f"计算浓度一致性失败: {str(e)}")
+        
+        # 厚度一致性：对25个点位，计算 ((设备1.Ti - 设备2.Ti) / 设备2.Ti) * 100%，然后取均值
+        thick_consistency = None
+        try:
+            # 获取设备1的厚度数据（T1-T25）
+            eq1_thick = db.query(Measurement.point_number, Measurement.value).filter(
+                Measurement.wafer_no == wafer_no,
+                Measurement.measurement_type == 2,
+                Measurement.measurement_equipment == 1,
+                Measurement.point_number.isnot(None)
+            ).all()
+            
+            # 获取设备2的厚度数据（T1-T25）
+            eq2_thick = db.query(Measurement.point_number, Measurement.value).filter(
+                Measurement.wafer_no == wafer_no,
+                Measurement.measurement_type == 2,
+                Measurement.measurement_equipment == 2,
+                Measurement.point_number.isnot(None)
+            ).all()
+            
+            # 转换为字典便于查找
+            eq1_dict = {row.point_number: row.value for row in eq1_thick}
+            eq2_dict = {row.point_number: row.value for row in eq2_thick}
+            
+            # 计算每个点位的一致性
+            consistency_values = []
+            for point_num in range(1, 26):  # T1-T25
+                if point_num in eq1_dict and point_num in eq2_dict:
+                    val1 = eq1_dict[point_num]
+                    val2 = eq2_dict[point_num]
+                    if val2 and val2 != 0:  # 避免除零
+                        consistency = ((val1 - val2) / val2) * 100
+                        consistency_values.append(consistency)
+            
+            # 计算均值
+            if consistency_values:
+                thick_consistency = sum(consistency_values) / len(consistency_values)
+        except Exception as e:
+            print(f"计算厚度一致性失败: {str(e)}")
+        
         return {
             "wafer": wafer,
             "avg_concentration": float(avg_conc_result) if avg_conc_result else None,
@@ -143,7 +222,10 @@ class WaferRepository:
             "thick_max": float(thick_max_result) if thick_max_result else None,
             "thick_min": float(thick_min_result) if thick_min_result else None,
             "thick_uniformity": thick_uniformity,
-            "thick_tolerance": thick_tolerance
+            "thick_tolerance": thick_tolerance,
+            # 一致性指标（设备1 vs 设备2）
+            "conc_consistency": conc_consistency,
+            "thick_consistency": thick_consistency
         }
     
     @staticmethod

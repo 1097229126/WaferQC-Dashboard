@@ -46,11 +46,14 @@ class WaferWithStats(WaferResponse):
     
     # 厚度统计指标（基于设备1）
     thick_mean: Optional[float] = Field(None, description="厚度均值")
-    thick_max: Optional[float] = Field(None, description="厚度最大值")
+    thick_max: Optional[float] = Field(None, description="厚度最大값")
     thick_min: Optional[float] = Field(None, description="厚度最小值")
     thick_uniformity: Optional[float] = Field(None, description="厚度均匀性 (%)")
     thick_tolerance: Optional[float] = Field(None, description="厚度 Tolerance%")
-
+    
+    # 一致性指标（设备1 vs 设备2）
+    conc_consistency: Optional[float] = Field(None, description="浓度一致性 (%)")
+    thick_consistency: Optional[float] = Field(None, description="厚度一致性 (%)")
 
 # ==================== 测量数据相关模式 ====================
 

@@ -155,6 +155,33 @@
             </template>
           </el-table-column>
         </el-table-column>
+        
+        <!-- 一致性指标（设备1 vs 设备2） -->
+        <el-table-column label="一致性指标" min-width="300">
+          <el-table-column 
+            prop="conc_consistency" 
+            label="浓度一致性 (%)" 
+            min-width="150" 
+            align="center"
+            sortable="custom"
+          >
+            <template #default="{ row }">
+              {{ row.conc_consistency !== null ? row.conc_consistency.toFixed(2) + '%' : '-' }}
+            </template>
+          </el-table-column>
+          
+          <el-table-column 
+            prop="thick_consistency" 
+            label="厚度一致性 (%)" 
+            min-width="150" 
+            align="center"
+            sortable="custom"
+          >
+            <template #default="{ row }">
+              {{ row.thick_consistency !== null ? row.thick_consistency.toFixed(2) + '%' : '-' }}
+            </template>
+          </el-table-column>
+        </el-table-column>
       </el-table>
 
       <!-- 分页 -->
