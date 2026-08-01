@@ -12,41 +12,13 @@ class WaferRepository:
     """晶圆操作仓储"""
     
     @staticmethod
-    def get_all_wafers(db: Session, skip: int = 0, limit: int = 100, sort_by: str = None, sort_order: str = None) -> Tuple[List[Wafer], int]:
-        """分页获取所有晶圆及其统计信息
-        
-        参数:
-            db: 数据库会话
-            skip: 跳过记录数
-            limit: 返回记录数
-            sort_by: 排序字段 (wafer_no等)
-            sort_order: 排序方向 (asc=正序, desc=倒序)
-            
-        返回:
-            (晶圆列表, 总数)
-        """
+    def get_all_wafers(db: Session, skip: int = 0, limit: int = 100) -> Tuple[List[Wafer], int]:
+        """分页获取所有晶圆及其统计信息（按创建时间倒序，新的在前）"""
         # 获取总数
         total = db.query(func.count(Wafer.id)).scalar()
         
-        # 构建基础查询
-        query = db.query(Wafer)
-        
-        # 应用排序
-        if sort_by and sort_order:
-            order_direction = asc if sort_order == 'asc' else desc
-            
-            # wafer_no字段可以直接排序
-            if sort_by == 'wafer_no':
-                query = query.order_by(order_direction(Wafer.wafer_no))
-            else:
-                # 其他字段暂时使用默认顺序
-                query = query.order_by(Wafer.created_at.desc())
-        else:
-            # 默认按创建时间倒序
-            query = query.order_by(Wafer.created_at.desc())
-        
-        # 获取晶圆列表
-        wafers = query.offset(skip).limit(limit).all()
+        # 获取晶圆列表（按创建时间倒序）
+        wafers = db.query(Wafer).order_by(Wafer.created_at.desc()).offset(skip).limit(limit).all()
         
         return wafers, total
     

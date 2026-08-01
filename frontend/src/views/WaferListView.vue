@@ -177,7 +177,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
-import { waferAPI } from '../api'
+import { waferAPI } from '../api/index.js'
 
 // 状态
 const tableData = ref([])
@@ -322,22 +322,35 @@ const handleSortChange = ({ prop, order }) => {
   loadData()
 }
 
-// 格式化浓度显示（科学计数法）
+// 格式化浓度显示（科学计数法，使用上标）
 const formatConcentration = (value) => {
   if (value === null || value === undefined) return '-'
-  // 转换为科学计数法，例如: 1.50×10^15
-  const exponential = value.toExponential(2)
-  const [mantissa, exponent] = exponential.split('e+')
-  return `${mantissa}×10^${exponent}`
+  
+  // 将数值转换为科学计数法字符串
+  const str = value.toExponential(2) // 保留两位小数
+  // 格式: "3.06e+28" -> "3.06×10²⁸"
+  const [mantissa, exponent] = str.split('e')
+  const expNum = parseInt(exponent.replace('+', ''))
+  
+  // 上标数字映射
+  const superscripts = {
+    '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+    '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+    '-': '⁻'
+  }
+  
+  // 将指数转换为上标
+  const expStr = expNum.toString().split('').map(char => superscripts[char] || char).join('')
+  
+  return `${mantissa}×10${expStr}`
 }
 
-// 格式化厚度显示（科学计数法）
+// 格式化厚度显示（普通小数）
 const formatThickness = (value) => {
   if (value === null || value === undefined) return '-'
-  // 转换为科学计数法，例如: 1.00×10^1
-  const exponential = value.toExponential(2)
-  const [mantissa, exponent] = exponential.split('e+')
-  return `${mantissa}×10^${exponent}`
+  
+  // 厚度值通常较小，直接使用toFixed格式化
+  return value.toFixed(3)
 }
 
 // 生命周期

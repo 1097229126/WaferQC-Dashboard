@@ -424,7 +424,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Plus, Delete, Upload, UploadFilled } from '@element-plus/icons-vue'
-import { waferAPI, measurementAPI } from '../api'
+import { waferAPI, measurementAPI } from '../api/index.js'
 
 // 状态
 const tableData = ref([])
