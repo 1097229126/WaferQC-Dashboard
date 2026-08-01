@@ -2,7 +2,7 @@
 数据访问层仓储 - 适配现有数据库表结构
 """
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, asc, desc
 from typing import List, Optional, Tuple
 
 from app.models.models import Wafer, Measurement
@@ -12,13 +12,41 @@ class WaferRepository:
     """晶圆操作仓储"""
     
     @staticmethod
-    def get_all_wafers(db: Session, skip: int = 0, limit: int = 100) -> Tuple[List[Wafer], int]:
-        """分页获取所有晶圆及其统计信息（按创建时间倒序，新的在前）"""
+    def get_all_wafers(db: Session, skip: int = 0, limit: int = 100, sort_by: str = None, sort_order: str = None) -> Tuple[List[Wafer], int]:
+        """分页获取所有晶圆及其统计信息
+        
+        参数:
+            db: 数据库会话
+            skip: 跳过记录数
+            limit: 返回记录数
+            sort_by: 排序字段 (wafer_no等)
+            sort_order: 排序方向 (asc=正序, desc=倒序)
+            
+        返回:
+            (晶圆列表, 总数)
+        """
         # 获取总数
         total = db.query(func.count(Wafer.id)).scalar()
         
-        # 获取晶圆列表（按创建时间倒序）
-        wafers = db.query(Wafer).order_by(Wafer.created_at.desc()).offset(skip).limit(limit).all()
+        # 构建基础查询
+        query = db.query(Wafer)
+        
+        # 应用排序
+        if sort_by and sort_order:
+            order_direction = asc if sort_order == 'asc' else desc
+            
+            # wafer_no字段可以直接排序
+            if sort_by == 'wafer_no':
+                query = query.order_by(order_direction(Wafer.wafer_no))
+            else:
+                # 其他字段暂时使用默认顺序
+                query = query.order_by(Wafer.created_at.desc())
+        else:
+            # 默认按创建时间倒序
+            query = query.order_by(Wafer.created_at.desc())
+        
+        # 获取晶圆列表
+        wafers = query.offset(skip).limit(limit).all()
         
         return wafers, total
     
@@ -51,11 +79,99 @@ class WaferRepository:
             Measurement.wafer_no == wafer_no
         ).scalar()
         
+        # ==================== 基于设备1的浓度统计指标 ====================
+        # 浓度均值 (仅设备1)
+        conc_mean_result = db.query(func.avg(Measurement.value)).filter(
+            Measurement.wafer_no == wafer_no,
+            Measurement.measurement_type == 1,
+            Measurement.measurement_equipment == 1
+        ).scalar()
+        
+        # 浓度最大值 (仅设备1)
+        conc_max_result = db.query(func.max(Measurement.value)).filter(
+            Measurement.wafer_no == wafer_no,
+            Measurement.measurement_type == 1,
+            Measurement.measurement_equipment == 1
+        ).scalar()
+        
+        # 浓度最小值 (仅设备1)
+        conc_min_result = db.query(func.min(Measurement.value)).filter(
+            Measurement.wafer_no == wafer_no,
+            Measurement.measurement_type == 1,
+            Measurement.measurement_equipment == 1
+        ).scalar()
+        
+        # 浓度均匀性 (仅设备1): STDEVA / AVG * 100%
+        conc_uniformity = None
+        if conc_mean_result and conc_mean_result != 0:
+            conc_stdev_result = db.query(func.stddev_samp(Measurement.value)).filter(
+                Measurement.wafer_no == wafer_no,
+                Measurement.measurement_type == 1,
+                Measurement.measurement_equipment == 1
+            ).scalar()
+            if conc_stdev_result:
+                conc_uniformity = abs(conc_stdev_result / conc_mean_result * 100)
+        
+        # 浓度 Tolerance% (仅设备1): |AVG - Target| / Target * 100%
+        conc_tolerance = None
+        if wafer.concentration_target and wafer.concentration_target != 0 and conc_mean_result is not None:
+            conc_tolerance = abs((conc_mean_result - wafer.concentration_target) / wafer.concentration_target * 100)
+        
+        # ==================== 基于设备1的厚度统计指标 ====================
+        # 厚度均值 (仅设备1)
+        thick_mean_result = db.query(func.avg(Measurement.value)).filter(
+            Measurement.wafer_no == wafer_no,
+            Measurement.measurement_type == 2,
+            Measurement.measurement_equipment == 1
+        ).scalar()
+        
+        # 厚度最大值 (仅设备1)
+        thick_max_result = db.query(func.max(Measurement.value)).filter(
+            Measurement.wafer_no == wafer_no,
+            Measurement.measurement_type == 2,
+            Measurement.measurement_equipment == 1
+        ).scalar()
+        
+        # 厚度最小值 (仅设备1)
+        thick_min_result = db.query(func.min(Measurement.value)).filter(
+            Measurement.wafer_no == wafer_no,
+            Measurement.measurement_type == 2,
+            Measurement.measurement_equipment == 1
+        ).scalar()
+        
+        # 厚度均匀性 (仅设备1): STDEVA / AVG * 100%
+        thick_uniformity = None
+        if thick_mean_result and thick_mean_result != 0:
+            thick_stdev_result = db.query(func.stddev_samp(Measurement.value)).filter(
+                Measurement.wafer_no == wafer_no,
+                Measurement.measurement_type == 2,
+                Measurement.measurement_equipment == 1
+            ).scalar()
+            if thick_stdev_result:
+                thick_uniformity = abs(thick_stdev_result / thick_mean_result * 100)
+        
+        # 厚度 Tolerance% (仅设备1): |AVG - Target| / Target * 100%
+        thick_tolerance = None
+        if wafer.thickness_target and wafer.thickness_target != 0 and thick_mean_result is not None:
+            thick_tolerance = abs((thick_mean_result - wafer.thickness_target) / wafer.thickness_target * 100)
+        
         return {
             "wafer": wafer,
             "avg_concentration": float(avg_conc_result) if avg_conc_result else None,
             "avg_thickness": float(avg_thick_result) if avg_thick_result else None,
-            "measurement_count": measurement_count or 0
+            "measurement_count": measurement_count or 0,
+            # 浓度统计指标（基于设备1）
+            "conc_mean": float(conc_mean_result) if conc_mean_result else None,
+            "conc_max": float(conc_max_result) if conc_max_result else None,
+            "conc_min": float(conc_min_result) if conc_min_result else None,
+            "conc_uniformity": conc_uniformity,
+            "conc_tolerance": conc_tolerance,
+            # 厚度统计指标（基于设备1）
+            "thick_mean": float(thick_mean_result) if thick_mean_result else None,
+            "thick_max": float(thick_max_result) if thick_max_result else None,
+            "thick_min": float(thick_min_result) if thick_min_result else None,
+            "thick_uniformity": thick_uniformity,
+            "thick_tolerance": thick_tolerance
         }
     
     @staticmethod
@@ -79,6 +195,38 @@ class WaferRepository:
             db.commit()
             return True
         return False
+    
+    @staticmethod
+    def batch_delete_wafers(db: Session, wafer_nos: List[str]) -> int:
+        """批量删除晶圆（级联删除相关测量数据）
+        
+        参数:
+            db: 数据库会话
+            wafer_nos: 晶片号列表
+            
+        返回:
+            成功删除的晶片数量
+        """
+        if not wafer_nos:
+            return 0
+        
+        deleted_count = 0
+        for wafer_no in wafer_nos:
+            try:
+                # 先删除相关的测量数据
+                db.query(Measurement).filter(Measurement.wafer_no == wafer_no).delete()
+                # 再删除晶圆
+                wafer = db.query(Wafer).filter(Wafer.wafer_no == wafer_no).first()
+                if wafer:
+                    db.delete(wafer)
+                    deleted_count += 1
+            except Exception as e:
+                print(f"删除晶片 {wafer_no} 失败: {str(e)}")
+                continue
+        
+        # 提交事务
+        db.commit()
+        return deleted_count
 
 
 class MeasurementRepository:

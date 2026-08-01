@@ -1,9 +1,11 @@
 """
 WaferQC-Dashboard API 路由 - 适配现有数据库表结构
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List
+import tempfile
+import os
 
 from app.core.database import get_db
 from app.schemas.schemas import (
@@ -19,11 +21,156 @@ router = APIRouter()
 # ==================== 晶圆 API ====================
 
 @router.get("/wafers/", response_model=WaferListResponse)
-def get_wafers(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    """分页获取晶圆列表及其统计信息（平均浓度、平均厚度）"""
+def get_wafers(
+    skip: int = 0, 
+    limit: int = 100, 
+    sort_by: str = None,
+    sort_order: str = None,
+    db: Session = Depends(get_db)
+):
+    """分页获取晶圆列表及其统计信息（平均浓度、平均厚度）
+    
+    参数:
+        skip: 跳过的记录数
+        limit: 每页数量
+        sort_by: 排序字段 (wafer_no, conc_mean, conc_max, conc_min, conc_uniformity, conc_tolerance, thick_mean, thick_max, thick_min, thick_uniformity, thick_tolerance)
+        sort_order: 排序方向 (asc=正序, desc=倒序)
+    """
     service = WaferService(db)
-    wafers, total = service.get_wafers_with_stats(skip, limit)
+    wafers, total = service.get_wafers_with_stats(skip, limit, sort_by, sort_order)
     return {"total": total, "items": wafers}
+
+
+@router.post("/wafers/", response_model=WaferResponse, status_code=201)
+def create_wafer(wafer: WaferCreate, db: Session = Depends(get_db)):
+    """创建新晶圆"""
+    wafer_repo = WaferRepository()
+    
+    # 检查晶片号是否已存在
+    existing = wafer_repo.get_wafer_by_no(db, wafer.wafer_no)
+    if existing:
+        raise HTTPException(status_code=400, detail="晶片号已存在")
+    
+    wafer_data = wafer.model_dump()
+    return wafer_repo.create_wafer(db, wafer_data)
+
+
+@router.post("/wafers/batch-delete")
+def batch_delete_wafers(request: dict, db: Session = Depends(get_db)):
+    """批量删除晶圆"""
+    wafer_nos = request.get("wafer_nos", [])
+    if not wafer_nos:
+        raise HTTPException(status_code=400, detail="请选择要删除的晶圆")
+    
+    wafer_repo = WaferRepository()
+    deleted_count = wafer_repo.batch_delete_wafers(db, wafer_nos)
+    
+    if deleted_count == 0:
+        raise HTTPException(status_code=404, detail="未找到任何晶圆")
+    
+    return {"message": f"成功删除 {deleted_count} 个晶圆", "deleted_count": deleted_count}
+
+
+@router.post("/wafers/import-excel")
+async def import_wafers_from_excel(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """
+    从Excel文件导入晶片数据
+    
+    文件格式要求：
+    - 包含两个Sheet："数据1"（设备1）和"数据2"（设备2）
+    - 双层表头结构
+    - 前4列为晶片信息，后续为测量点位数据
+    """
+    # 验证文件类型
+    if not file.filename.endswith('.xlsx'):
+        raise HTTPException(status_code=400, detail="仅支持 .xlsx 格式的Excel文件")
+    
+    # 保存临时文件
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp_file:
+        tmp_file.write(await file.read())
+        tmp_file_path = tmp_file.name
+    
+    try:
+        service = WaferService(db)
+        result = service.import_wafers_from_excel(tmp_file_path)
+        
+        return {
+            "success": True,
+            "message": result["message"],
+            "imported_wafers": result["imported_wafers"],
+            "skipped_wafers": result["skipped_wafers"],
+            "imported_measurements": result["imported_measurements"]
+        }
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"导入失败: {str(e)}")
+    finally:
+        # 清理临时文件
+        if os.path.exists(tmp_file_path):
+            os.remove(tmp_file_path)
+
+
+@router.get("/wafers/import-template", summary="下载Excel导入模板")
+async def download_import_template():
+    """
+    下载Excel导入模板
+    
+    返回一个包含示例数据的Excel模板文件，包含：
+    - Sheet1（数据1）：设备1的测量数据模板
+    - Sheet2（数据2）：设备2的测量数据模板
+    - 统一的列名：晶片号、原始等级、浓度目标、厚度目标
+    """
+    import tempfile
+    
+    # 创建临时文件
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp_file:
+        tmp_file_path = tmp_file.name
+    
+    try:
+        service = WaferService(None)  # 不需要数据库连接
+        template_path = service.generate_import_template(tmp_file_path)
+        
+        # 读取文件并返回
+        from fastapi.responses import FileResponse
+        
+        return FileResponse(
+            path=template_path,
+            filename="晶片数据导入模板.xlsx",
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    except Exception as e:
+        # 清理临时文件
+        if os.path.exists(tmp_file_path):
+            os.unlink(tmp_file_path)
+        raise HTTPException(status_code=500, detail=f"生成模板失败: {str(e)}")
+
+
+@router.post("/wafers/bulk-create", response_model=WaferResponse, status_code=201)
+def create_wafer_with_measurements(
+    wafer_no: str,
+    measurements: List[MeasurementCreate],
+    db: Session = Depends(get_db)
+):
+    """一次性创建晶圆及其所有测量数据"""
+    service = WaferService(db)
+    
+    measurements_data = [m.model_dump() for m in measurements]
+    try:
+        wafer = service.create_wafer_with_measurements(wafer_no, measurements_data)
+        return wafer
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/wafers/{wafer_no}")
+def delete_wafer(wafer_no: str, db: Session = Depends(get_db)):
+    """删除晶圆"""
+    wafer_repo = WaferRepository()
+    success = wafer_repo.delete_wafer(db, wafer_no)
+    if not success:
+        raise HTTPException(status_code=404, detail="未找到晶圆")
+    return {"message": "晶圆删除成功"}
 
 
 @router.get("/wafers/{wafer_no}", response_model=WaferWithStats)
@@ -49,30 +196,6 @@ def get_wafer(wafer_no: str, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/wafers/", response_model=WaferResponse, status_code=201)
-def create_wafer(wafer: WaferCreate, db: Session = Depends(get_db)):
-    """创建新晶圆"""
-    wafer_repo = WaferRepository()
-    
-    # 检查晶片号是否已存在
-    existing = wafer_repo.get_wafer_by_no(db, wafer.wafer_no)
-    if existing:
-        raise HTTPException(status_code=400, detail="晶片号已存在")
-    
-    wafer_data = wafer.model_dump()
-    return wafer_repo.create_wafer(db, wafer_data)
-
-
-@router.delete("/wafers/{wafer_no}")
-def delete_wafer(wafer_no: str, db: Session = Depends(get_db)):
-    """删除晶圆"""
-    wafer_repo = WaferRepository()
-    success = wafer_repo.delete_wafer(db, wafer_no)
-    if not success:
-        raise HTTPException(status_code=404, detail="未找到晶圆")
-    return {"message": "晶圆删除成功"}
-
-
 # ==================== 测量数据 API ====================
 
 @router.post("/measurements/", response_model=MeasurementResponse, status_code=201)
@@ -96,21 +219,3 @@ def get_wafer_measurements(wafer_no: str, db: Session = Depends(get_db)):
     measurement_repo = MeasurementRepository()
     return measurement_repo.get_measurements_by_wafer(db, wafer_no)
 
-
-# ==================== 批量创建 API ====================
-
-@router.post("/wafers/bulk-create", response_model=WaferResponse, status_code=201)
-def create_wafer_with_measurements(
-    wafer_no: str,
-    measurements: List[MeasurementCreate],
-    db: Session = Depends(get_db)
-):
-    """一次性创建晶圆及其所有测量数据"""
-    service = WaferService(db)
-    
-    measurements_data = [m.model_dump() for m in measurements]
-    try:
-        wafer = service.create_wafer_with_measurements(wafer_no, measurements_data)
-        return wafer
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))

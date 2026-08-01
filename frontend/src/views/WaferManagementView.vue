@@ -9,6 +9,22 @@
               <el-icon><Plus /></el-icon>
               新建晶片
             </el-button>
+            <el-button type="warning" @click="showImportDialog">
+              <el-icon><Upload /></el-icon>
+              导入Excel
+            </el-button>
+            <el-button 
+              type="danger" 
+              :disabled="selectedRows.length === 0"
+              @click="handleBatchDelete"
+            >
+              <el-icon><Delete /></el-icon>
+              批量删除 ({{ selectedRows.length }})
+            </el-button>
+            <el-button type="info" plain @click="downloadTemplate">
+              <el-icon><Download /></el-icon>
+              下载模板
+            </el-button>
             <el-button type="primary" @click="loadData">
               <el-icon><Refresh /></el-icon>
               刷新
@@ -24,7 +40,9 @@
         stripe
         border
         style="width: 100%"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column type="selection" width="55" align="center" />
         <el-table-column type="index" label="序号" width="80" align="center" />
         
         <el-table-column prop="wafer_no" label="晶片号" min-width="150" align="center" />
@@ -344,13 +362,68 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 导入Excel对话框 -->
+    <el-dialog
+      v-model="importDialogVisible"
+      title="导入Excel数据"
+      width="500px"
+      :close-on-click-modal="false"
+    >
+      <el-alert
+        title="导入说明"
+        type="info"
+        :closable="false"
+        style="margin-bottom: 20px;"
+      >
+        <p><strong>1. 下载模板：</strong>点击"下载模板"按钮获取标准Excel模板</p>
+        <p><strong>2. 文件格式：</strong>仅支持 .xlsx 格式，包含"数据1"和"数据2"两个Sheet</p>
+        <p><strong>3. 列名说明：</strong></p>
+        <p>&nbsp;&nbsp;- 晶片号/Wafer ID：同一概念，任选其一</p>
+        <p>&nbsp;&nbsp;- 原始等级/衬底级别：同一概念，表示晶片质量等级（D或NG）</p>
+        <p>&nbsp;&nbsp;- 浓度目标、厚度目标：必须填写</p>
+        <p><strong>4. 数据处理：</strong>相同晶片号会自动合并两台设备的测量数据</p>
+      </el-alert>
+      
+      <el-upload
+        ref="uploadRef"
+        drag
+        :auto-upload="false"
+        :on-change="handleFileChange"
+        :limit="1"
+        accept=".xlsx"
+        style="width: 100%;"
+      >
+        <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+        <div class="el-upload__text">
+          将文件拖到此处，或<em>点击上传</em>
+        </div>
+        <template #tip>
+          <div class="el-upload__tip">
+            只能上传 .xlsx 文件
+          </div>
+        </template>
+      </el-upload>
+      
+      <template #footer>
+        <el-button @click="importDialogVisible = false">取消</el-button>
+        <el-button 
+          type="primary" 
+          @click="handleImport" 
+          :loading="importLoading"
+          :disabled="!selectedFile"
+        >
+          开始导入
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Refresh, Plus } from '@element-plus/icons-vue'
+import { Refresh, Plus, Delete, Upload, UploadFilled } from '@element-plus/icons-vue'
 import { waferAPI, measurementAPI } from '../api'
 
 // 状态
@@ -359,6 +432,7 @@ const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
+const selectedRows = ref([]) // 选中的行数据
 
 // 抽屉相关状态
 const drawerVisible = ref(false)
@@ -369,8 +443,8 @@ const activeTab = ref('all') // 当前激活的tab
 
 // 新建晶片对话框相关状态
 const createDialogVisible = ref(false)
-const createLoading = ref(false)
 const createFormRef = ref(null)
+const createLoading = ref(false)
 const createForm = ref({
   wafer_no: '',
   original_grade: '',
@@ -378,7 +452,13 @@ const createForm = ref({
   thickness_target: null
 })
 
-// 新建测量对话框相关状态
+// 导入Excel对话框相关状态
+const importDialogVisible = ref(false)
+const importLoading = ref(false)
+const selectedFile = ref(null)
+const uploadRef = ref(null)
+
+// 测量明细对话框相关状态
 const createMeasurementDialogVisible = ref(false)
 const createMeasurementLoading = ref(false)
 const createMeasureFormRef = ref(null)
@@ -533,6 +613,11 @@ const handleSizeChange = (size) => {
   loadData()
 }
 
+// 处理表格选择变化
+const handleSelectionChange = (selection) => {
+  selectedRows.value = selection
+}
+
 // 显示测量明细
 const showMeasurementDetail = async (row) => {
   currentWaferNo.value = row.wafer_no
@@ -572,6 +657,106 @@ const handleDelete = (row) => {
   }).catch(() => {
     // 用户取消删除
   })
+}
+
+// 批量删除晶圆
+const handleBatchDelete = () => {
+  if (selectedRows.value.length === 0) return
+
+  ElMessageBox.confirm(
+    `确定要删除选中的 ${selectedRows.value.length} 个晶片吗？此操作不可恢复！`,
+    '警告',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  ).then(async () => {
+    try {
+      const waferNos = selectedRows.value.map(row => row.wafer_no)
+      await waferAPI.batchDeleteWafers(waferNos)
+      ElMessage.success('批量删除成功')
+      selectedRows.value = [] // 清空选中项
+      loadData() // 重新加载数据
+    } catch (error) {
+      if (error.response && error.response.data && error.response.data.detail) {
+        ElMessage.error(error.response.data.detail)
+      } else {
+        ElMessage.error('批量删除失败')
+      }
+      console.error(error)
+    }
+  }).catch(() => {
+    // 用户取消删除
+  })
+}
+
+// 显示导入对话框
+const showImportDialog = () => {
+  importDialogVisible.value = true
+  selectedFile.value = null
+  if (uploadRef.value) {
+    uploadRef.value.clearFiles()
+  }
+}
+
+// 处理文件选择
+const handleFileChange = (file) => {
+  selectedFile.value = file.raw
+}
+
+// 执行导入
+const handleImport = async () => {
+  if (!selectedFile.value) {
+    ElMessage.warning('请先选择文件')
+    return
+  }
+
+  importLoading.value = true
+  
+  try {
+    const result = await waferAPI.importWafersFromExcel(selectedFile.value)
+    
+    ElMessage.success({
+      message: `${result.message}（跳过已存在的 ${result.skipped_wafers} 个晶片）`,
+      duration: 5000
+    })
+    
+    importDialogVisible.value = false
+    selectedFile.value = null
+    loadData() // 重新加载数据
+  } catch (error) {
+    if (error.response && error.response.data && error.response.data.detail) {
+      ElMessage.error(`导入失败: ${error.response.data.detail}`)
+    } else {
+      ElMessage.error('导入失败，请检查文件格式是否正确')
+    }
+    console.error(error)
+  } finally {
+    importLoading.value = false
+  }
+}
+
+// 下载导入模板
+const downloadTemplate = async () => {
+  try {
+    const response = await api.downloadImportTemplate()
+    
+    // 创建下载链接
+    const url = window.URL.createObjectURL(new Blob([response.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', '晶片数据导入模板.xlsx')
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    
+    ElMessage.success('模板下载成功')
+  } catch (error) {
+    ElMessage.error('模板下载失败')
+    console.error(error)
+  }
 }
 
 // 显示新建晶片对话框

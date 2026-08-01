@@ -32,8 +32,12 @@ apiClient.interceptors.response.use(
 // 晶圆 API 调用
 export const waferAPI = {
   // 获取晶圆列表（带统计信息）
-  getWafers: (skip = 0, limit = 100) => 
-    apiClient.get('/wafers/', { params: { skip, limit } }),
+  getWafers: (skip = 0, limit = 100, sortBy = null, sortOrder = null) => {
+    const params = { skip, limit }
+    if (sortBy) params.sort_by = sortBy
+    if (sortOrder) params.sort_order = sortOrder
+    return apiClient.get('/wafers/', { params })
+  },
   
   // 获取单个晶圆详情
   getWaferByNo: (waferNo) => 
@@ -46,6 +50,25 @@ export const waferAPI = {
   // 删除晶圆
   deleteWafer: (waferNo) => 
     apiClient.delete(`/wafers/${waferNo}`),
+  
+  // 批量删除晶圆
+  batchDeleteWafers: (waferNos) => 
+    apiClient.post('/wafers/batch-delete', { wafer_nos: waferNos }),
+  
+  // 下载Excel导入模板
+  downloadImportTemplate: () => 
+    apiClient.get('/wafers/import-template', { responseType: 'blob' }),
+  
+  // 从Excel导入晶圆数据
+  importWafersFromExcel: (file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return apiClient.post('/wafers/import-excel', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+  },
   
   // 批量创建晶圆和测量数据
   createWaferWithMeasurements: (waferNo, measurements) => 

@@ -36,6 +36,20 @@ class WaferWithStats(WaferResponse):
     avg_concentration: Optional[float] = Field(None, description="平均浓度")
     avg_thickness: Optional[float] = Field(None, description="平均厚度")
     measurement_count: Optional[int] = Field(0, description="测量次数")
+    
+    # 浓度统计指标（基于设备1）
+    conc_mean: Optional[float] = Field(None, description="浓度均值")
+    conc_max: Optional[float] = Field(None, description="浓度最大值")
+    conc_min: Optional[float] = Field(None, description="浓度最小值")
+    conc_uniformity: Optional[float] = Field(None, description="浓度均匀性 (%)")
+    conc_tolerance: Optional[float] = Field(None, description="浓度 Tolerance%")
+    
+    # 厚度统计指标（基于设备1）
+    thick_mean: Optional[float] = Field(None, description="厚度均值")
+    thick_max: Optional[float] = Field(None, description="厚度最大值")
+    thick_min: Optional[float] = Field(None, description="厚度最小值")
+    thick_uniformity: Optional[float] = Field(None, description="厚度均匀性 (%)")
+    thick_tolerance: Optional[float] = Field(None, description="厚度 Tolerance%")
 
 
 # ==================== 测量数据相关模式 ====================
