@@ -43,10 +43,45 @@
         <el-table-column 
           prop="wafer_no" 
           label="晶片号" 
-          min-width="150" 
+          min-width="120" 
           align="center"
           sortable="custom"
         />
+        
+        <el-table-column 
+          prop="original_grade" 
+          label="原等级" 
+          min-width="100" 
+          align="center"
+        >
+          <template #default="{ row }">
+            <el-tag v-if="row.original_grade === 'D'" type="info" size="small">D</el-tag>
+            <el-tag v-else-if="row.original_grade === 'NG'" type="danger" size="small">NG</el-tag>
+            <span v-else>{{ row.original_grade || '-' }}</span>
+          </template>
+        </el-table-column>
+        
+        <el-table-column 
+          prop="concentration_target" 
+          label="目标浓度 (atoms/cm³)" 
+          min-width="180" 
+          align="center"
+        >
+          <template #default="{ row }">
+            {{ row.concentration_target !== null ? formatConcentration(row.concentration_target) : '-' }}
+          </template>
+        </el-table-column>
+        
+        <el-table-column 
+          prop="thickness_target" 
+          label="目标厚度 (μm)" 
+          min-width="150" 
+          align="center"
+        >
+          <template #default="{ row }">
+            {{ row.thickness_target !== null ? formatThickness(row.thickness_target) : '-' }}
+          </template>
+        </el-table-column>
         
         <!-- 浓度相关指标 -->
         <el-table-column label="浓度指标" min-width="600">
