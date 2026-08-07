@@ -4,10 +4,28 @@
       <template #header>
         <div class="card-header">
           <h2>外延片检测大表</h2>
-          <el-button type="primary" @click="loadData">
-            <el-icon><Refresh /></el-icon>
-            刷新
-          </el-button>
+          <div style="display: flex; gap: 10px;">
+            <!-- 晶片号搜索框 -->
+            <el-input
+              v-model="searchKeyword"
+              placeholder="请输入晶片号搜索"
+              clearable
+              style="width: 250px;"
+              @keyup.enter="handleSearch"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+              <template #append>
+                <el-button :icon="Search" @click="handleSearch">搜索</el-button>
+              </template>
+            </el-input>
+            
+            <el-button type="primary" @click="loadData">
+              <el-icon><Refresh /></el-icon>
+              刷新
+            </el-button>
+          </div>
         </div>
       </template>
 
@@ -91,10 +109,22 @@
               {{ row.conc_tolerance !== null ? row.conc_tolerance.toFixed(2) + '%' : '-' }}
             </template>
           </el-table-column>
+          
+          <el-table-column 
+            prop="conc_consistency" 
+            label="浓度点位一致性 (%)" 
+            min-width="160" 
+            align="center"
+            sortable="custom"
+          >
+            <template #default="{ row }">
+              {{ row.conc_consistency !== null ? row.conc_consistency.toFixed(2) + '%' : '-' }}
+            </template>
+          </el-table-column>
         </el-table-column>
         
         <!-- 厚度相关指标 -->
-        <el-table-column label="厚度指标" min-width="600">
+        <el-table-column label="厚度指标" min-width="750">
           <el-table-column 
             prop="thick_mean" 
             label="厚度均值 (μm)" 
@@ -154,26 +184,11 @@
               {{ row.thick_tolerance !== null ? row.thick_tolerance.toFixed(2) + '%' : '-' }}
             </template>
           </el-table-column>
-        </el-table-column>
-        
-        <!-- 一致性指标（设备1 vs 设备2） -->
-        <el-table-column label="一致性指标" min-width="300">
-          <el-table-column 
-            prop="conc_consistency" 
-            label="浓度一致性 (%)" 
-            min-width="150" 
-            align="center"
-            sortable="custom"
-          >
-            <template #default="{ row }">
-              {{ row.conc_consistency !== null ? row.conc_consistency.toFixed(2) + '%' : '-' }}
-            </template>
-          </el-table-column>
           
           <el-table-column 
             prop="thick_consistency" 
-            label="厚度一致性 (%)" 
-            min-width="150" 
+            label="厚度点位一致性 (%)" 
+            min-width="160" 
             align="center"
             sortable="custom"
           >
@@ -203,7 +218,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Refresh } from '@element-plus/icons-vue'
+import { Refresh, Search } from '@element-plus/icons-vue'
 import { waferAPI } from '../api/index.js'
 
 // 状态
@@ -212,6 +227,7 @@ const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
+const searchKeyword = ref('')  // 搜索关键字
 
 // 排序状态管理
 const sortState = ref({
@@ -302,7 +318,8 @@ const loadData = async () => {
       sortOrder = sortState.value.order === 'ascending' ? 'asc' : 'desc'
     }
     
-    const response = await waferAPI.getWafers(skip, pageSize.value, sortBy, sortOrder)
+    // 传递搜索关键字
+    const response = await waferAPI.getWafers(skip, pageSize.value, sortBy, sortOrder, searchKeyword.value)
     tableData.value = response.items
     total.value = response.total
   } catch (error) {
@@ -346,6 +363,12 @@ const handleSortChange = ({ prop, order }) => {
   
   // 重置到第一页并重新加载数据
   currentPage.value = 1
+  loadData()
+}
+
+// 处理搜索
+const handleSearch = () => {
+  currentPage.value = 1  // 重置到第一页
   loadData()
 }
 

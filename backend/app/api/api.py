@@ -21,10 +21,25 @@ router = APIRouter()
 # ==================== 晶圆 API ====================
 
 @router.get("/wafers/", response_model=WaferListResponse)
-def get_wafers(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    """分页获取晶圆列表及其统计信息（平均浓度、平均厚度）"""
+def get_wafers(
+    skip: int = 0, 
+    limit: int = 100, 
+    sort_by: str = None,
+    sort_order: str = None,
+    search: str = None,
+    db: Session = Depends(get_db)
+):
+    """分页获取晶圆列表及其统计信息（平均浓度、平均厚度）
+    
+    参数:
+        skip: 跳过的记录数
+        limit: 每页数量
+        sort_by: 排序字段 (wafer_no, conc_mean, conc_max, conc_min, conc_uniformity, conc_tolerance, thick_mean, thick_max, thick_min, thick_uniformity, thick_tolerance)
+        sort_order: 排序方向 (asc=正序, desc=倒序)
+        search: 搜索关键字（晶片号模糊匹配）
+    """
     service = WaferService(db)
-    wafers, total = service.get_wafers_with_stats(skip, limit)
+    wafers, total = service.get_wafers_with_stats(skip, limit, sort_by, sort_order, search)
     return {"total": total, "items": wafers}
 
 

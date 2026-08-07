@@ -43,17 +43,18 @@ class WaferWithStats(WaferResponse):
     conc_min: Optional[float] = Field(None, description="浓度最小值")
     conc_uniformity: Optional[float] = Field(None, description="浓度均匀性 (%)")
     conc_tolerance: Optional[float] = Field(None, description="浓度 Tolerance%")
+    conc_consistency: Optional[float] = Field(None, description="浓度点位一致性 (%) - P1-P25的平均值")
     
     # 厚度统计指标（基于设备1）
     thick_mean: Optional[float] = Field(None, description="厚度均值")
     thick_max: Optional[float] = Field(None, description="厚度最大값")
-    thick_min: Optional[float] = Field(None, description="厚度最小值")
+    thick_min: Optional[float] = Field(None, description="厚度最小값")
     thick_uniformity: Optional[float] = Field(None, description="厚度均匀性 (%)")
     thick_tolerance: Optional[float] = Field(None, description="厚度 Tolerance%")
-    
+    thick_consistency: Optional[float] = Field(None, description="厚度点位一致性 (%) - T1-T25的平均值")
+
     # 一致性指标（设备1 vs 设备2）
-    conc_consistency: Optional[float] = Field(None, description="浓度一致性 (%)")
-    thick_consistency: Optional[float] = Field(None, description="厚度一致性 (%)")
+    point_consistency: Optional[float] = Field(None, description="点位一致性 (%) - 所有50个点位(P1-P25+T1-T25)的平均值")
 
 # ==================== 测量数据相关模式 ====================
 

@@ -32,8 +32,13 @@ apiClient.interceptors.response.use(
 // 晶圆 API 调用
 export const waferAPI = {
   // 获取晶圆列表（带统计信息）
-  getWafers: (skip = 0, limit = 100) => 
-    apiClient.get('/wafers/', { params: { skip, limit } }),
+  getWafers: (skip = 0, limit = 100, sortBy = null, sortOrder = null, search = null) => {
+    const params = { skip, limit }
+    if (sortBy) params.sort_by = sortBy
+    if (sortOrder) params.sort_order = sortOrder
+    if (search) params.search = search
+    return apiClient.get('/wafers/', { params })
+  },
   
   // 获取单个晶圆详情
   getWaferByNo: (waferNo) => 

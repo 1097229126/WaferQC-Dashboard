@@ -7,7 +7,7 @@ import pandas as pd
 import os
 
 from app.models.models import Wafer, Measurement
-from app.repositories.repository import WaferRepository, MeasurementRepository
+from app.repositories.repository import WaferRepository
 from app.schemas.schemas import WaferWithStats
 
 
@@ -17,20 +17,29 @@ class WaferService:
     def __init__(self, db: Session):
         self.db = db
         self.wafer_repo = WaferRepository()
-        self.measurement_repo = MeasurementRepository()
-    
-    def get_wafers_with_stats(self, skip: int = 0, limit: int = 100) -> Tuple[List[WaferWithStats], int]:
+
+    def get_wafers_with_stats(
+        self, 
+        skip: int = 0, 
+        limit: int = 100,
+        sort_by: str = None,
+        sort_order: str = None,
+        search: str = None
+    ) -> Tuple[List[WaferWithStats], int]:
         """
         获取晶片列表及其统计信息
         
         参数:
             skip: 跳过记录数
             limit: 返回记录数
+            sort_by: 排序字段
+            sort_order: 排序方向 (asc/desc)
+            search: 搜索关键字（晶片号模糊匹配）
             
         返回:
             (晶圆列表, 总数)
         """
-        wafers, total = self.wafer_repo.get_all_wafers(self.db, skip, limit)
+        wafers, total = self.wafer_repo.get_all_wafers(self.db, skip, limit, sort_by, sort_order, search)
                 
         # 为每个晶圆计算统计数据
         wafer_list = []
@@ -54,14 +63,13 @@ class WaferService:
                     conc_min=stats.get("conc_min"),
                     conc_uniformity=stats.get("conc_uniformity"),
                     conc_tolerance=stats.get("conc_tolerance"),
+                    conc_consistency=stats.get("conc_consistency"),
                     # 厚度统计指标（基于设备1）
                     thick_mean=stats.get("thick_mean"),
                     thick_max=stats.get("thick_max"),
                     thick_min=stats.get("thick_min"),
                     thick_uniformity=stats.get("thick_uniformity"),
                     thick_tolerance=stats.get("thick_tolerance"),
-                    # 一致性指标（设备1 vs 设备2）
-                    conc_consistency=stats.get("conc_consistency"),
                     thick_consistency=stats.get("thick_consistency")
                 )
                 wafer_list.append(wafer_data)
