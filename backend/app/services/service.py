@@ -64,13 +64,17 @@ class WaferService:
                     conc_uniformity=stats.get("conc_uniformity"),
                     conc_tolerance=stats.get("conc_tolerance"),
                     conc_consistency=stats.get("conc_consistency"),
+                    conc_grade=stats.get("conc_grade"),
                     # 厚度统计指标（基于设备1）
                     thick_mean=stats.get("thick_mean"),
                     thick_max=stats.get("thick_max"),
                     thick_min=stats.get("thick_min"),
                     thick_uniformity=stats.get("thick_uniformity"),
                     thick_tolerance=stats.get("thick_tolerance"),
-                    thick_consistency=stats.get("thick_consistency")
+                    thick_consistency=stats.get("thick_consistency"),
+                    thick_grade=stats.get("thick_grade"),
+                    # 综合等级
+                    overall_grade=stats.get("overall_grade")
                 )
                 wafer_list.append(wafer_data)
                 

@@ -260,6 +260,37 @@ class WaferRepository:
         except Exception as e:
             print(f"计算厚度点位一致性失败: {str(e)}")
         
+        # ==================== 等级判定逻辑 ====================
+        # 浓度等级判定（基于设备1）
+        conc_grade = None
+        if conc_uniformity is not None and conc_tolerance is not None:
+            if conc_uniformity <= 2.0 and conc_tolerance <= 2.0:
+                conc_grade = "A"
+            elif conc_uniformity <= 5.0 and conc_tolerance <= 5.0:
+                conc_grade = "B"
+            else:
+                conc_grade = "不合格"
+        
+        # 厚度等级判定（基于设备1）
+        thick_grade = None
+        if thick_uniformity is not None and thick_tolerance is not None:
+            if thick_uniformity <= 2.0 and thick_tolerance <= 2.0:
+                thick_grade = "A"
+            elif thick_uniformity <= 5.0 and thick_tolerance <= 5.0:
+                thick_grade = "B"
+            else:
+                thick_grade = "不合格"
+        
+        # 综合等级判定
+        overall_grade = None
+        if conc_grade and thick_grade:
+            if conc_grade == "A" and thick_grade == "A":
+                overall_grade = "A"
+            elif conc_grade == "不合格" or thick_grade == "不合格":
+                overall_grade = "不合格"
+            else:
+                overall_grade = "B"
+        
         return {
             "wafer": wafer,
             "avg_concentration": float(avg_conc_result) if avg_conc_result else None,
@@ -272,13 +303,17 @@ class WaferRepository:
             "conc_uniformity": conc_uniformity,
             "conc_tolerance": conc_tolerance,
             "conc_consistency": conc_consistency,
+            "conc_grade": conc_grade,
             # 厚度统计指标（基于设备1）
             "thick_mean": float(thick_mean_result) if thick_mean_result else None,
             "thick_max": float(thick_max_result) if thick_max_result else None,
             "thick_min": float(thick_min_result) if thick_min_result else None,
             "thick_uniformity": thick_uniformity,
             "thick_tolerance": thick_tolerance,
-            "thick_consistency": thick_consistency
+            "thick_consistency": thick_consistency,
+            "thick_grade": thick_grade,
+            # 综合等级
+            "overall_grade": overall_grade
         }
     
     @staticmethod
@@ -289,11 +324,38 @@ class WaferRepository:
         db.commit()
         db.refresh(wafer)
         return wafer
+    
+    @staticmethod
+    def delete_wafer(db: Session, wafer_no: str) -> bool:
+        """删除晶圆及其所有测量数据
+        
+        注意：必须先删除关联的测量数据，再删除晶圆，避免外键约束错误
+        """
+        try:
+            # 先删除该晶圆的所有测量数据
+            measurements = db.query(Measurement).filter(
+                Measurement.wafer_no == wafer_no
+            ).all()
+            
+            for measurement in measurements:
+                db.delete(measurement)
+            
+            # 再删除晶圆
+            wafer = db.query(Wafer).filter(Wafer.wafer_no == wafer_no).first()
+            if not wafer:
+                return False
+            
+            db.delete(wafer)
+            db.commit()
+            return True
+        except Exception as e:
+            db.rollback()
+            print(f"删除晶圆失败: {str(e)}")
+            return False
 
 
 class MeasurementRepository:
-    """测量数据仓库"""
-    
+
     @staticmethod
     def create_measurement(db: Session, measurement_data: dict) -> Measurement:
         """创建测量数据"""

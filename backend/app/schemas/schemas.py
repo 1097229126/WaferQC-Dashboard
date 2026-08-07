@@ -40,10 +40,11 @@ class WaferWithStats(WaferResponse):
     # 浓度统计指标（基于设备1）
     conc_mean: Optional[float] = Field(None, description="浓度均值")
     conc_max: Optional[float] = Field(None, description="浓度最大值")
-    conc_min: Optional[float] = Field(None, description="浓度最小值")
+    conc_min: Optional[float] = Field(None, description="浓度最小값")
     conc_uniformity: Optional[float] = Field(None, description="浓度均匀性 (%)")
     conc_tolerance: Optional[float] = Field(None, description="浓度 Tolerance%")
     conc_consistency: Optional[float] = Field(None, description="浓度点位一致性 (%) - P1-P25的平均值")
+    conc_grade: Optional[str] = Field(None, description="浓度等级 (A/B/不合格)")
     
     # 厚度统计指标（基于设备1）
     thick_mean: Optional[float] = Field(None, description="厚度均值")
@@ -52,6 +53,10 @@ class WaferWithStats(WaferResponse):
     thick_uniformity: Optional[float] = Field(None, description="厚度均匀性 (%)")
     thick_tolerance: Optional[float] = Field(None, description="厚度 Tolerance%")
     thick_consistency: Optional[float] = Field(None, description="厚度点位一致性 (%) - T1-T25的平均值")
+    thick_grade: Optional[str] = Field(None, description="厚度等级 (A/B/不合格)")
+    
+    # 综合等级
+    overall_grade: Optional[str] = Field(None, description="综合等级 (A/B/不合格)")
 
     # 一致性指标（设备1 vs 设备2）
     point_consistency: Optional[float] = Field(None, description="点位一致性 (%) - 所有50个点位(P1-P25+T1-T25)的平均值")

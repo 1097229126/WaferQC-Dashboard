@@ -121,6 +121,20 @@
               {{ row.conc_consistency !== null ? row.conc_consistency.toFixed(2) + '%' : '-' }}
             </template>
           </el-table-column>
+          
+          <el-table-column 
+            prop="conc_grade" 
+            label="浓度等级" 
+            min-width="100" 
+            align="center"
+          >
+            <template #default="{ row }">
+              <el-tag v-if="row.conc_grade === 'A'" type="success" size="small">A</el-tag>
+              <el-tag v-else-if="row.conc_grade === 'B'" type="warning" size="small">B</el-tag>
+              <el-tag v-else-if="row.conc_grade === '不合格'" type="danger" size="small">不合格</el-tag>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
         </el-table-column>
         
         <!-- 厚度相关指标 -->
@@ -194,6 +208,37 @@
           >
             <template #default="{ row }">
               {{ row.thick_consistency !== null ? row.thick_consistency.toFixed(2) + '%' : '-' }}
+            </template>
+          </el-table-column>
+          
+          <el-table-column 
+            prop="thick_grade" 
+            label="厚度等级" 
+            min-width="100" 
+            align="center"
+          >
+            <template #default="{ row }">
+              <el-tag v-if="row.thick_grade === 'A'" type="success" size="small">A</el-tag>
+              <el-tag v-else-if="row.thick_grade === 'B'" type="warning" size="small">B</el-tag>
+              <el-tag v-else-if="row.thick_grade === '不合格'" type="danger" size="small">不合格</el-tag>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+        </el-table-column>
+        
+        <!-- 综合等级 -->
+        <el-table-column label="综合等级" min-width="120">
+          <el-table-column 
+            prop="overall_grade" 
+            label="综合等级" 
+            min-width="100" 
+            align="center"
+          >
+            <template #default="{ row }">
+              <el-tag v-if="row.overall_grade === 'A'" type="success" size="small">A</el-tag>
+              <el-tag v-else-if="row.overall_grade === 'B'" type="warning" size="small">B</el-tag>
+              <el-tag v-else-if="row.overall_grade === '不合格'" type="danger" size="small">不合格</el-tag>
+              <span v-else>-</span>
             </template>
           </el-table-column>
         </el-table-column>
