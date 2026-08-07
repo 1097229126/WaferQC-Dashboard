@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import WaferListView from '../views/WaferListView.vue'
 import WaferManagementView from '../views/WaferManagementView.vue'
+import DashboardView from '../views/DashboardView.vue'
 
 const routes = [
   {
@@ -14,6 +15,12 @@ const routes = [
     name: 'WaferManagement',
     component: WaferManagementView,
     meta: { title: '晶片列表' }
+  },
+  {
+    path: '/dashboard',
+    name: 'Dashboard',
+    component: DashboardView,
+    meta: { title: '可视化看板' }
   }
 ]
 

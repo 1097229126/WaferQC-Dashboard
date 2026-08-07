@@ -21,6 +21,10 @@
             <el-icon><Grid /></el-icon>
             <span>晶片列表</span>
           </el-menu-item>
+          <el-menu-item index="/dashboard">
+            <el-icon><TrendCharts /></el-icon>
+            <span>可视化看板</span>
+          </el-menu-item>
         </el-menu>
       </el-aside>
 
@@ -37,7 +41,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { DataAnalysis, Grid } from '@element-plus/icons-vue'
+import { DataAnalysis, Grid, TrendCharts } from '@element-plus/icons-vue'
 
 const route = useRoute()
 

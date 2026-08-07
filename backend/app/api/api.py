@@ -3,11 +3,12 @@ WaferQC-Dashboard API 路由 - 适配现有数据库表结构
 """
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Dict
 import tempfile
 import os
 
 from app.core.database import get_db
+from app.models.models import Wafer, Measurement
 from app.schemas.schemas import (
     WaferCreate, WaferResponse, WaferWithStats, WaferListResponse,
     MeasurementCreate, MeasurementResponse
@@ -196,6 +197,109 @@ def get_wafer(wafer_no: str, db: Session = Depends(get_db)):
         avg_thickness=stats["avg_thickness"],
         measurement_count=stats["measurement_count"]
     )
+
+
+# ==================== 可视化看板 API ====================
+
+@router.get("/dashboard/grade-distribution")
+def get_grade_distribution(db: Session = Depends(get_db)):
+    """获取等级分布统计数据（用于饼图）
+    
+    返回:
+    - 浓度等级分布: {A: count, B: count, 不合格: count}
+    - 厚度等级分布: {A: count, B: count, 不合格: count}
+    - 综合等级分布: {A: count, B: count, 不合格: count}
+    """
+    service = WaferService(db)
+    
+    # 获取所有晶片的统计信息
+    all_wafers, total = service.get_wafers_with_stats(skip=0, limit=10000)
+    
+    # 初始化计数器
+    conc_dist = {"A": 0, "B": 0, "不合格": 0}
+    thick_dist = {"A": 0, "B": 0, "不合格": 0}
+    overall_dist = {"A": 0, "B": 0, "不合格": 0}
+    
+    # 统计各等级数量
+    for wafer in all_wafers:
+        if wafer.conc_grade:
+            if wafer.conc_grade in conc_dist:
+                conc_dist[wafer.conc_grade] += 1
+        
+        if wafer.thick_grade:
+            if wafer.thick_grade in thick_dist:
+                thick_dist[wafer.thick_grade] += 1
+        
+        if wafer.overall_grade:
+            if wafer.overall_grade in overall_dist:
+                overall_dist[wafer.overall_grade] += 1
+    
+    return {
+        "conc_grade_distribution": conc_dist,
+        "thick_grade_distribution": thick_dist,
+        "overall_grade_distribution": overall_dist,
+        "total_wafers": len(all_wafers)
+    }
+
+
+@router.get("/dashboard/wafer-details")
+def get_wafer_details_for_charts(
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db)
+):
+    """获取晶片详细信息（用于折线图）
+    
+    参数:
+        skip: 跳过记录数（用于分页，每页50个晶片）
+        limit: 每页数量（默认50）
+    
+    返回:
+        包含每个晶片的详细测量数据，按点位分组
+    """
+    from sqlalchemy import text
+    
+    # 获取所有晶片列表（按创建时间排序）
+    wafers_query = db.query(Wafer).order_by(Wafer.created_at.asc())
+    total = wafers_query.count()
+    wafers = wafers_query.offset(skip).limit(limit).all()
+    
+    result = []
+    
+    for wafer in wafers:
+        # 获取该晶片的所有测量数据
+        measurements = db.query(Measurement).filter(
+            Measurement.wafer_no == wafer.wafer_no
+        ).order_by(
+            Measurement.measurement_equipment.asc(),
+            Measurement.measurement_type.asc(),
+            Measurement.point_number.asc()
+        ).all()
+        
+        # 组织数据结构
+        wafer_data = {
+            "wafer_no": wafer.wafer_no,
+            "concentration_target": wafer.concentration_target,
+            "thickness_target": wafer.thickness_target,
+            "measurements": []
+        }
+        
+        for m in measurements:
+            wafer_data["measurements"].append({
+                "measurement_type": m.measurement_type,
+                "point_number": m.point_number,
+                "value": m.value,
+                "measurement_equipment": m.measurement_equipment
+            })
+        
+        result.append(wafer_data)
+    
+    return {
+        "total": total,
+        "current_page": (skip // limit) + 1,
+        "total_pages": (total + limit - 1) // limit,
+        "items": result
+    }
 
 
 # ==================== 测量数据 API ====================
