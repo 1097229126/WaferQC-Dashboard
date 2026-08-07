@@ -84,16 +84,18 @@ class WaferRepository:
         if not wafer:
             return None
         
-        # 计算平均浓度 (measurement_type = 1)
+        # 计算平均浓度 (measurement_type = 1，排除0值)
         avg_conc_result = db.query(func.avg(Measurement.value)).filter(
             Measurement.wafer_no == wafer_no,
-            Measurement.measurement_type == 1
+            Measurement.measurement_type == 1,
+            Measurement.value != 0
         ).scalar()
         
-        # 计算平均厚度 (measurement_type = 2)
+        # 计算平均厚度 (measurement_type = 2，排除0值)
         avg_thick_result = db.query(func.avg(Measurement.value)).filter(
             Measurement.wafer_no == wafer_no,
-            Measurement.measurement_type == 2
+            Measurement.measurement_type == 2,
+            Measurement.value != 0
         ).scalar()
         
         # 统计测量次数
@@ -102,39 +104,43 @@ class WaferRepository:
         ).scalar()
         
         # ==================== 基于设备1的浓度统计指标 ====================
-        # 浓度均值 (仅设备1)
+        # 浓度均值 (仅设备1，排除0值)
         conc_mean_result = db.query(func.avg(Measurement.value)).filter(
             Measurement.wafer_no == wafer_no,
             Measurement.measurement_type == 1,
-            Measurement.measurement_equipment == 1
+            Measurement.measurement_equipment == 1,
+            Measurement.value != 0
         ).scalar()
         
-        # 浓度最大值 (仅设备1)
+        # 浓度最大值 (仅设备1，排除0值)
         conc_max_result = db.query(func.max(Measurement.value)).filter(
             Measurement.wafer_no == wafer_no,
             Measurement.measurement_type == 1,
-            Measurement.measurement_equipment == 1
+            Measurement.measurement_equipment == 1,
+            Measurement.value != 0
         ).scalar()
         
-        # 浓度最小值 (仅设备1)
+        # 浓度最小值 (仅设备1，排除0值)
         conc_min_result = db.query(func.min(Measurement.value)).filter(
             Measurement.wafer_no == wafer_no,
             Measurement.measurement_type == 1,
-            Measurement.measurement_equipment == 1
+            Measurement.measurement_equipment == 1,
+            Measurement.value != 0
         ).scalar()
         
-        # 浓度均匀性 (仅设备1): STDEVA / AVG * 100%
+        # 浓度均匀性 (仅设备1): STDEVA / AVG * 100%（排除0值）
         conc_uniformity = None
         if conc_mean_result and conc_mean_result != 0:
             conc_stdev_result = db.query(func.stddev_samp(Measurement.value)).filter(
                 Measurement.wafer_no == wafer_no,
                 Measurement.measurement_type == 1,
-                Measurement.measurement_equipment == 1
+                Measurement.measurement_equipment == 1,
+                Measurement.value != 0
             ).scalar()
             if conc_stdev_result:
                 conc_uniformity = abs(conc_stdev_result / conc_mean_result * 100)
         
-        # 浓度 Tolerance% (仅设备1): MAX(ABS(MAX-Target)/Target, ABS(MIN-Target)/Target) × 100%
+        # 浓度 Tolerance% (仅设备1): MAX(ABS(MAX-Target)/Target, ABS(MIN-Target)/Target) × 100%（排除0值）
         conc_tolerance = None
         if conc_max_result is not None and conc_min_result is not None and wafer.concentration_target and wafer.concentration_target != 0:
             max_deviation = abs(conc_max_result - wafer.concentration_target) / abs(wafer.concentration_target)
@@ -142,39 +148,43 @@ class WaferRepository:
             conc_tolerance = max(max_deviation, min_deviation) * 100
         
         # ==================== 基于设备1的厚度统计指标 ====================
-        # 厚度均值 (仅设备1)
+        # 厚度均值 (仅设备1，排除0值)
         thick_mean_result = db.query(func.avg(Measurement.value)).filter(
             Measurement.wafer_no == wafer_no,
             Measurement.measurement_type == 2,
-            Measurement.measurement_equipment == 1
+            Measurement.measurement_equipment == 1,
+            Measurement.value != 0
         ).scalar()
         
-        # 厚度最大值 (仅设备1)
+        # 厚度最大值 (仅设备1，排除0值)
         thick_max_result = db.query(func.max(Measurement.value)).filter(
             Measurement.wafer_no == wafer_no,
             Measurement.measurement_type == 2,
-            Measurement.measurement_equipment == 1
+            Measurement.measurement_equipment == 1,
+            Measurement.value != 0
         ).scalar()
         
-        # 厚度最小值 (仅设备1)
+        # 厚度最小值 (仅设备1，排除0值)
         thick_min_result = db.query(func.min(Measurement.value)).filter(
             Measurement.wafer_no == wafer_no,
             Measurement.measurement_type == 2,
-            Measurement.measurement_equipment == 1
+            Measurement.measurement_equipment == 1,
+            Measurement.value != 0
         ).scalar()
         
-        # 厚度均匀性 (仅设备1): STDEVA / AVG * 100%
+        # 厚度均匀性 (仅设备1): STDEVA / AVG * 100%（排除0值）
         thick_uniformity = None
         if thick_mean_result and thick_mean_result != 0:
             thick_stdev_result = db.query(func.stddev_samp(Measurement.value)).filter(
                 Measurement.wafer_no == wafer_no,
                 Measurement.measurement_type == 2,
-                Measurement.measurement_equipment == 1
+                Measurement.measurement_equipment == 1,
+                Measurement.value != 0
             ).scalar()
             if thick_stdev_result:
                 thick_uniformity = abs(thick_stdev_result / thick_mean_result * 100)
         
-        # 厚度 Tolerance% (仅设备1): MAX(ABS(MAX-Target)/Target, ABS(MIN-Target)/Target) × 100%
+        # 厚度 Tolerance% (仅设备1): MAX(ABS(MAX-Target)/Target, ABS(MIN-Target)/Target) × 100%（排除0值）
         thick_tolerance = None
         if thick_max_result is not None and thick_min_result is not None and wafer.thickness_target and wafer.thickness_target != 0:
             max_deviation = abs(thick_max_result - wafer.thickness_target) / abs(wafer.thickness_target)
